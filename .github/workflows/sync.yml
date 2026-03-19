@@ -1,0 +1,26 @@
+name: Sync Google Sheet
+on:
+  schedule:
+    - cron: '0 * * * *' # Automatically updates every hour
+  workflow_dispatch: # This adds the "Run workflow" button we need
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Fetch and Convert
+        run: |
+          # 1. Downloads your Google Sheet as a CSV
+          curl -L "https://docs.google.com/spreadsheets/d/13Qry1cfwnCh9dNKX94l8pqG-mbLV8AYmBflpnxQeDuk/gviz/tq?tqx=out:csv" > data.csv
+          
+          # 2. Converts CSV to JSON for the extension
+          node -e "const fs = require('fs'); const csv = fs.readFileSync('data.csv', 'utf8'); const rows = csv.split('\n').filter(r => r.trim()).slice(1).map(r => r.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/).map(c => c.replace(/^\"|\"$/g, ''))); fs.writeFileSync('data.json', JSON.stringify(rows));"
+      
+      - name: Commit to GitHub
+        run: |
+          git config user.name "SheetBot"
+          git config user.email "actions@github.com"
+          git add data.json
+          git commit -m "Update data from Sheet" || exit 0
+          git push
